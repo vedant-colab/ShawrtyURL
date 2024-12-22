@@ -2,51 +2,32 @@ package controller
 
 import (
 	"src/services"
+	"src/utils"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
-type ShortenURLBody struct {
-	ShortenURL string `json:"shortenURL" validate:"required,min=5"`
-	ActualURL  string `json:"actualURL" validate:"required,min=5"`
-}
-
 // Validator instance
-var validate = validator.New()
 
 func ShortenUrl(c *fiber.Ctx) error {
 	// Parse request body into struct
-	var shortenurlBody ShortenURLBody
-	if err := c.BodyParser(&shortenurlBody); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error_code":    "1",
-			"error_message": "Invalid request body",
-		})
+	body := new(struct {
+		ActualURL string `json:"actualURL" validate:"required"`
+	})
+
+	if err := c.BodyParser(body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	// Validate request body
-	if err := validate.Struct(&shortenurlBody); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error_code":    "2",
-			"error_message": "Validation failed",
-			"details":       err.Error(),
-		})
+	shortenedURL, err := services.SaveShortenURL(body.ActualURL)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Could not save URL"})
 	}
 
-	// Call the service to save the URL
-	if err := services.SaveShortenURL(shortenurlBody.ShortenURL, shortenurlBody.ActualURL); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error_code":    "3",
-			"error_message": "Failed to save URL",
-			"details":       err.Error(),
-		})
-	}
+	finalUrl := utils.GenerateURL(shortenedURL)
 
-	// Success response
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"error_code":    "0",
-		"error_message": "URL saved successfully",
+	return c.Status(201).JSON(fiber.Map{
+		"shorten_url": finalUrl,
 	})
 }
 
@@ -67,4 +48,20 @@ func GetAllURLs(c *fiber.Ctx) error {
 		"Data":       rows,
 	})
 	// return nil
+}
+
+func GetURL(c *fiber.Ctx) error {
+	shortenURL := c.Params("shortenURL")
+	if shortenURL == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+	actualURL, err := services.FetchActualURL(shortenURL)
+	if err != nil {
+		// log.Fatalf("Error fetching all urls from database : %v\n", err)
+		return c.Status(500).JSON(fiber.Map{"error": "Could not fetch URL"})
+	}
+	return c.Status(200).JSON(fiber.Map{
+		"actual_url": actualURL,
+		"error_code": "0",
+	})
 }

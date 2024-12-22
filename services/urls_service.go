@@ -1,8 +1,12 @@
 package services
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"log"
 	"src/database"
+	"src/utils"
 )
 
 type URL struct {
@@ -13,23 +17,42 @@ type URL struct {
 	UpdatedAt  string `json:"updated_at"`
 }
 
-// SaveShortenURL inserts a new shorten URL into the database
-func SaveShortenURL(shortenURL string, actualURL string) error {
-	// Prepare the SQL query
-	query := "INSERT INTO urls (shorten_url, actual_url) VALUES ($1, $2)"
+func SaveActualURL(actualURL string) (int, error) {
+	var id int
 
-	// Execute the query with parameters
-	_, err := database.DB.Exec(query, shortenURL, actualURL)
+	query := "INSERT INTO urls (actual_url) VALUES ($1) RETURNING id"
+	err := database.DB.QueryRow(query, actualURL).Scan(&id)
+	fmt.Println(id)
 	if err != nil {
-		// Log and return the error
-		log.Printf("Error inserting URL: %v\n", err)
-		return err
+		if err == sql.ErrNoRows {
+			return 0, errors.New("no rows returned")
+		}
+		return 0, fmt.Errorf("failed to insert URL: %v", err)
 	}
 
-	log.Println("URL successfully saved to database")
-	return nil
+	return id, nil
 }
 
+// SaveShortenURL inserts a new shorten URL into the database
+func SaveShortenURL(actualURL string) (string, error) {
+	baseID, err := SaveActualURL(actualURL)
+	fmt.Println(baseID)
+	fmt.Println(err)
+	if err != nil {
+		return "", err
+	}
+	shortenedURL := utils.GenerateRandom(baseID)
+
+	query := "UPDATE urls SET shorten_url = $1 WHERE id = $2"
+	_, err = database.DB.Exec(query, shortenedURL, baseID)
+	if err != nil {
+		return "", fmt.Errorf("failed to save shortened URL: %v", err)
+	}
+
+	return shortenedURL, nil
+}
+
+// Fetches all the urls saved in database
 func FetchAllURL() ([]URL, error) {
 	query := "select * from urls;"
 	rows, err := database.DB.Query(query)
@@ -56,4 +79,19 @@ func FetchAllURL() ([]URL, error) {
 
 	return urls, err
 
+}
+
+func FetchActualURL(shortenURL string) (string, error) {
+	var actualURL string
+
+	query := "SELECT actual_url FROM urls WHERE shorten_url = $1"
+	err := database.DB.QueryRow(query, shortenURL).Scan(&actualURL)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", errors.New("no rows returned")
+		}
+		return "", fmt.Errorf("failed to fetch actual URL: %v", err)
+	}
+
+	return actualURL, nil
 }
