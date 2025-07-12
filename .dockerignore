@@ -1,0 +1,41 @@
+# Ignore environment variables
+# .env
+
+
+# Ignore coverage directory
+coverage
+
+# Ignore temporary files
+tmp
+temp
+*.tmp
+*.swp
+
+# Ignore Docker files
+Dockerfile
+.dockerignore
+
+# Ignore git files
+.git
+.gitignore
+
+# Ignore IDE/editor config files
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
+
+# Ignore Go build files
+bin/
+pkg/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Ignore Go test binaries
+*.test
+
+# Ignore Go vendor directory
+vendor/
