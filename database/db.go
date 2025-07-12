@@ -14,7 +14,7 @@ var DB *sql.DB
 func ConnectDB() {
 	var err error
 
-	dsn := os.Getenv("DSN")
+	dsn := os.Getenv("DB_URL")
 
 	// Open a connection
 	DB, err = sql.Open("postgres", dsn)
